@@ -322,6 +322,11 @@ class SubjectDialog(tk.Toplevel):
         
         self.setup_ui()
         
+        # Make sure the dialog is modal
+        self.transient(parent)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        
     def setup_ui(self):
         self.geometry("650x600")
         
@@ -398,7 +403,7 @@ class SubjectDialog(tk.Toplevel):
         btn_row.pack(fill="x", padx=20, pady=5)
         
         ttk.Button(btn_row, text="Add Single Component", 
-                 command=self.add_component).pack(side="left", padx=5)
+                 command=self.add_single_component).pack(side="left", padx=5)
                  
         ttk.Button(btn_row, text="Add Multiple Quizzes", 
                  command=lambda: self.add_multiple_components("Quiz")).pack(side="left", padx=5)
@@ -497,6 +502,7 @@ class SubjectDialog(tk.Toplevel):
             self, base_name, count, total_weight,
             on_save=self.save_multiple_components
         )
+        dialog.grab_set()  # Make dialog modal
         self.wait_window(dialog)
     
     def add_single_component_from_preset(self, name, weight):
@@ -549,19 +555,28 @@ class SubjectDialog(tk.Toplevel):
             btn_frame = ttk.Frame(row)
             btn_frame.grid(row=0, column=5, padx=5)
             
+            # Fix: Create a function that has the component index hardcoded
+            def create_edit_func(index):
+                return lambda: self.edit_component(self.components[index], index)
+            
+            # Fix: Create a function that has the component index hardcoded
+            def create_delete_func(index):
+                return lambda: self.delete_component(index)
+            
             ttk.Button(
                 btn_frame, text="Edit",
-                command=lambda c=comp, idx=i: self.edit_component(c, idx)
+                command=create_edit_func(i)
             ).pack(side="left", padx=2)
             
             ttk.Button(
                 btn_frame, text="Delete",
-                command=lambda idx=i: self.delete_component(idx)
+                command=create_delete_func(i)
             ).pack(side="left", padx=2)
     
-    def add_component(self):
+    def add_single_component(self):
         """Open dialog to add a new component"""
         dialog = ComponentDialog(self, on_save=self.save_component)
+        dialog.grab_set()  # Make dialog modal
         self.wait_window(dialog)
     
     def add_multiple_components(self, base_name):
@@ -570,6 +585,7 @@ class SubjectDialog(tk.Toplevel):
             self, base_name, 4, 10.0,  # Default 4 components with 10% weight
             on_save=self.save_multiple_components
         )
+        dialog.grab_set()  # Make dialog modal
         self.wait_window(dialog)
         
     def save_component(self, component):
@@ -584,10 +600,13 @@ class SubjectDialog(tk.Toplevel):
         
     def edit_component(self, component, index):
         """Open dialog to edit an existing component"""
+        # Fix: Make a copy of the component to avoid reference issues
         dialog = ComponentDialog(
-            self, component=component,
+            self, 
+            component=component,
             on_save=lambda c: self.update_component(c, index)
         )
+        dialog.grab_set()  # Make dialog modal
         self.wait_window(dialog)
         
     def update_component(self, component, index):
@@ -675,6 +694,10 @@ class MultiComponentDialog(tk.Toplevel):
         self.max_marks_vars = []
         self.my_marks_vars = []
         self.class_avg_vars = []
+        
+        # Make the dialog modal
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
         
         self.setup_ui()
         
@@ -867,7 +890,7 @@ class MultiComponentDialog(tk.Toplevel):
         self.on_save(components)
         self.destroy()
 
-class ComponentDialog(ttk.Frame):
+class ComponentDialog(tk.Toplevel):
     """Dialog for adding/editing a component"""
     def __init__(self, parent, on_save, component=None):
         super().__init__(parent)
@@ -875,7 +898,7 @@ class ComponentDialog(ttk.Frame):
         self.on_save = on_save
         
         if component:
-            # Editing existing component
+            # Editing existing component - make a copy to avoid reference issues
             self.name_var = tk.StringVar(value=component.name)
             self.weight_var = tk.StringVar(value=str(component.weight))
             self.max_marks_var = tk.StringVar(value=str(component.max_marks))
@@ -888,6 +911,11 @@ class ComponentDialog(ttk.Frame):
             self.max_marks_var = tk.StringVar(value="")
             self.my_marks_var = tk.StringVar(value="")
             self.class_avg_var = tk.StringVar(value="")
+        
+        # Make the dialog modal
+        self.transient(parent)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
         
         self.setup_ui()
         
