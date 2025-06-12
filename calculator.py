@@ -5,15 +5,16 @@ from models import GradeScale, Subject, Semester
 
 def create_default_grade_scale() -> GradeScale:
     """Create and return the default grade scale as specified in requirements"""
+    # Updated grade scale to make C+ and B around the average
     return GradeScale({
-        0.20: ("A", 4.0),
-        0.10: ("B+", 3.5),
-        0.05: ("B", 3.0),
-        0.00: ("C+", 2.5),
-        -0.05: ("C", 2.0),
-        -0.10: ("D+", 1.5),
-        -0.15: ("D", 1.0),
-        -0.20: ("F", 0.0)
+        0.30: ("A", 4.0),    # +30% above average (>2 standard deviations)
+        0.20: ("A-", 3.7),   # +20% above average (>1.5 standard deviations)
+        0.15: ("B+", 3.3),   # +15% above average (>1 standard deviation)
+        0.05: ("B", 3.0),    # +5% above average (around 0.5 standard deviation)
+        -0.05: ("C+", 2.7),  # -5% below average to +5% above (within 0.5 standard deviation)
+        -0.15: ("C", 2.3),   # -15% below average (around 1 standard deviation below)
+        -0.25: ("D", 1.0),   # -25% below average (around 1.5 standard deviations below)
+        -0.35: ("F", 0.0)    # -35% or more below average (>2 standard deviations below)
     })
 
 
