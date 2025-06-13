@@ -28,13 +28,18 @@ import {
   Td,
   IconButton,
   useDisclosure,
-  Flex
+  Flex,
+  Badge,
+  Box,
+  Alert,
+  AlertIcon
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
-import { Subject } from '../../models';
+import { Subject, Component } from '../../models';
 import { SUBJECT_PRESETS } from '../../utils/calculator';
 import ComponentDialog from './ComponentDialog';
 import MultiComponentDialog from './MultiComponentDialog';
+import PresetCustomizationDialog from './PresetCustomizationDialog';
 
 const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
   const [name, setName] = useState('');
@@ -44,9 +49,12 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
   const [theoryCredits, setTheoryCredits] = useState('0');
   const [labCredits, setLabCredits] = useState('0');
   const [selectedPreset, setSelectedPreset] = useState('Custom');
+  const [totalWeight, setTotalWeight] = useState(0);
   
   const componentDialog = useDisclosure();
   const multiComponentDialog = useDisclosure();
+  const presetCustomizationDialog = useDisclosure();
+  
   const [currentComponent, setCurrentComponent] = useState(null);
   const [editIndex, setEditIndex] = useState(null);
   const [multiComponentParams, setMultiComponentParams] = useState({
@@ -54,6 +62,7 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
     count: 4,
     totalWeight: 10
   });
+  const [presetToCustomize, setPresetToCustomize] = useState(null);
 
   // Initialize the form when the dialog is opened or a subject is provided for editing
   useEffect(() => {
@@ -81,8 +90,21 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         setLabCredits('0');
         setSelectedPreset('Custom');
       }
+      
+      // Calculate total weight
+      updateTotalWeight();
     }
   }, [isOpen, subject]);
+  
+  // Update total weight whenever components change
+  useEffect(() => {
+    updateTotalWeight();
+  }, [components]);
+  
+  const updateTotalWeight = () => {
+    const total = components.reduce((sum, comp) => sum + comp.weight, 0);
+    setTotalWeight(total);
+  };
 
   const handleSave = () => {
     // Validate inputs
@@ -117,17 +139,17 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
     }
     
     // Calculate total weight
-    const totalWeight = components.reduce((sum, comp) => sum + comp.weight, 0);
     if (Math.abs(totalWeight - 100) > 0.01) {  // Allow tiny rounding errors
       // Normalize weights
       const normalize = window.confirm(
         `Component weights total ${totalWeight.toFixed(1)}% instead of 100%. Normalize automatically?`
       );
       if (normalize) {
-        setComponents(components.map(comp => ({
+        const normalizedComponents = components.map(comp => ({
           ...comp,
           weight: (comp.weight / totalWeight) * 100
-        })));
+        }));
+        setComponents(normalizedComponents);
       } else {
         alert("Component weights must total 100%.");
         return;
@@ -202,44 +224,44 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
       }
     }
     
+    // Open customization dialog with the selected preset
+    const presetComponents = SUBJECT_PRESETS[selectedPreset];
+    setPresetToCustomize([...presetComponents]);
+    presetCustomizationDialog.onOpen();
+  };
+  
+  const handleApplyCustomizedPreset = (customizedComponents) => {
     // Clear current components
     const newComponents = [];
     
-    // Get preset components
-    const presetComponents = SUBJECT_PRESETS[selectedPreset];
-    
-    // Process each preset component
-    for (const presetComp of presetComponents) {
+    // Process each customized preset component
+    for (const presetComp of customizedComponents) {
       if (presetComp.isGroup && presetComp.count > 1) {
-        // For group components, open the dialog
-        setMultiComponentParams({
-          baseName: presetComp.name,
-          count: presetComp.count,
-          totalWeight: presetComp.weight
-        });
-        // We can't directly open the dialog here in the current flow,
-        // so we'll set up the components manually
+        // For group components (e.g., multiple quizzes)
+        const weightPerItem = presetComp.weight / presetComp.count;
+        
         for (let i = 1; i <= presetComp.count; i++) {
-          newComponents.push({
-            name: `${presetComp.name} ${i}`,
-            weight: presetComp.weight / presetComp.count,
-            maxMarks: 10,
-            myMarks: 0,
-            classAvgMarks: 0
-          });
+          newComponents.push(new Component(
+            `${presetComp.name} ${i}`,
+            weightPerItem,
+            10, // Default max marks
+            0,  // Default my marks
+            0   // Default class average
+          ));
         }
       } else {
         // Single component
-        newComponents.push({
-          name: presetComp.name,
-          weight: presetComp.weight,
-          maxMarks: 100,
-          myMarks: 0,
-          classAvgMarks: 0
-        });
+        newComponents.push(new Component(
+          presetComp.name,
+          presetComp.weight,
+          100, // Default max marks
+          0,   // Default my marks
+          0    // Default class average
+        ));
       }
     }
     
+    // Set the components and update total weight
     setComponents(newComponents);
   };
 
@@ -326,6 +348,29 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
                       </Button>
                     </Flex>
                     
+                    {/* Total Weight Indicator */}
+                    <Box>
+                      <Flex justify="space-between" align="center">
+                        <FormLabel mb="0">Total Weight:</FormLabel>
+                        <Badge 
+                          colorScheme={Math.abs(totalWeight - 100) < 0.01 ? "green" : "red"}
+                          fontSize="md"
+                          px={2}
+                          py={1}
+                          borderRadius="md"
+                        >
+                          {totalWeight.toFixed(1)}%
+                        </Badge>
+                      </Flex>
+                      
+                      {Math.abs(totalWeight - 100) > 0.01 && (
+                        <Alert status="warning" mt={2} size="sm">
+                          <AlertIcon />
+                          Total weight should be 100%. Current total: {totalWeight.toFixed(1)}%.
+                        </Alert>
+                      )}
+                    </Box>
+                    
                     {components.length === 0 ? (
                       <p>No components added yet. Use the buttons above to add components.</p>
                     ) : (
@@ -390,8 +435,12 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
                       </Select>
                     </FormControl>
                     
-                    <Button onClick={handleApplyPreset}>
-                      Apply Preset
+                    <Button 
+                      colorScheme="teal"
+                      onClick={handleApplyPreset}
+                      isDisabled={selectedPreset === 'Custom'}
+                    >
+                      Customize & Apply Preset
                     </Button>
                     
                     {selectedPreset !== 'Custom' && (
@@ -403,6 +452,7 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
                               <Th>Component</Th>
                               <Th>Weight</Th>
                               <Th>Count</Th>
+                              <Th>Group</Th>
                             </Tr>
                           </Thead>
                           <Tbody>
@@ -411,6 +461,7 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
                                 <Td>{item.name}</Td>
                                 <Td>{item.weight}%</Td>
                                 <Td>{item.count}</Td>
+                                <Td>{item.isGroup ? "Yes" : "No"}</Td>
                               </Tr>
                             ))}
                           </Tbody>
@@ -434,6 +485,7 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         </ModalContent>
       </Modal>
       
+      {/* Component Dialog */}
       <ComponentDialog 
         isOpen={componentDialog.isOpen} 
         onClose={componentDialog.onClose}
@@ -441,11 +493,21 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         component={currentComponent}
       />
       
+      {/* Multi Component Dialog */}
       <MultiComponentDialog
         isOpen={multiComponentDialog.isOpen}
         onClose={multiComponentDialog.onClose}
         onSave={handleSaveMultipleComponents}
         params={multiComponentParams}
+      />
+      
+      {/* Preset Customization Dialog */}
+      <PresetCustomizationDialog
+        isOpen={presetCustomizationDialog.isOpen}
+        onClose={presetCustomizationDialog.onClose}
+        onApplyPreset={handleApplyCustomizedPreset}
+        presetName={selectedPreset}
+        presetComponents={presetToCustomize}
       />
     </>
   );
