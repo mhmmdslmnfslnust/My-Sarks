@@ -1,0 +1,303 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Button,
+  FormControl,
+  FormLabel,
+  Input,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  VStack,
+  HStack,
+  Box,
+  Text,
+  Progress,
+  Heading,
+  Divider,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  useToast
+} from '@chakra-ui/react';
+import { Component } from '../../models';
+
+const SequentialDataEntryDialog = ({ isOpen, onClose, onComplete, customizedComponents }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepComponents, setStepComponents] = useState([]);
+  const [allSteps, setAllSteps] = useState([]);
+  const [finalComponents, setFinalComponents] = useState([]);
+  const toast = useToast();
+
+  // Initialize dialog when opened with customized components
+  useEffect(() => {
+    if (isOpen && customizedComponents && customizedComponents.length > 0) {
+      // Group components by type (name without number)
+      const groups = {};
+      customizedComponents.forEach(comp => {
+        const baseName = comp.name;
+        if (!groups[baseName]) {
+          groups[baseName] = [];
+        }
+        groups[baseName].push({...comp});
+      });
+      
+      // Create steps for each group
+      const steps = Object.entries(groups).map(([name, comps]) => ({
+        name,
+        components: comps.map(c => ({
+          ...c,
+          maxMarks: c.maxMarks || 10, // Default max marks
+          myMarks: 0,
+          classAvgMarks: 0
+        }))
+      }));
+      
+      setAllSteps(steps);
+      setStepComponents(steps[0]?.components || []);
+      setCurrentStep(0);
+      setFinalComponents([]);
+    }
+  }, [isOpen, customizedComponents]);
+
+  const handleMaxMarksChange = (value, index) => {
+    const newComponents = [...stepComponents];
+    newComponents[index].maxMarks = Number(value);
+    setStepComponents(newComponents);
+  };
+
+  const handleMyMarksChange = (value, index) => {
+    const newComponents = [...stepComponents];
+    newComponents[index].myMarks = Number(value);
+    setStepComponents(newComponents);
+  };
+
+  const handleClassAvgChange = (value, index) => {
+    const newComponents = [...stepComponents];
+    newComponents[index].classAvgMarks = Number(value);
+    setStepComponents(newComponents);
+  };
+
+  const applyMaxMarksToAll = (value) => {
+    const newComponents = stepComponents.map(comp => ({
+      ...comp,
+      maxMarks: Number(value)
+    }));
+    setStepComponents(newComponents);
+  };
+
+  const applyClassAvgToAll = (value) => {
+    const newComponents = stepComponents.map(comp => ({
+      ...comp,
+      classAvgMarks: Number(value)
+    }));
+    setStepComponents(newComponents);
+  };
+
+  const nextStep = () => {
+    // Validate current step
+    for (let i = 0; i < stepComponents.length; i++) {
+      const comp = stepComponents[i];
+      
+      if (comp.maxMarks <= 0) {
+        toast({
+          title: "Invalid max marks",
+          description: `Max marks for ${comp.name} must be greater than zero.`,
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+      
+      if (comp.myMarks < 0 || comp.myMarks > comp.maxMarks) {
+        toast({
+          title: "Invalid marks",
+          description: `Your marks for ${comp.name} must be between 0 and ${comp.maxMarks}.`,
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+      
+      if (comp.classAvgMarks < 0 || comp.classAvgMarks > comp.maxMarks) {
+        toast({
+          title: "Invalid class average",
+          description: `Class average for ${comp.name} must be between 0 and ${comp.maxMarks}.`,
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+    }
+    
+    // Save current step components
+    const updatedFinalComponents = [...finalComponents, ...stepComponents];
+    setFinalComponents(updatedFinalComponents);
+    
+    // Move to next step or finish
+    if (currentStep < allSteps.length - 1) {
+      const nextStepIndex = currentStep + 1;
+      setCurrentStep(nextStepIndex);
+      setStepComponents(allSteps[nextStepIndex].components);
+    } else {
+      // Create and return final components
+      const finalComponentsList = updatedFinalComponents.map(comp => 
+        new Component(
+          comp.name,
+          comp.weight,
+          comp.maxMarks,
+          comp.myMarks,
+          comp.classAvgMarks
+        )
+      );
+      onComplete(finalComponentsList);
+    }
+  };
+
+  const progressPercent = allSteps.length > 0 
+    ? ((currentStep + 1) / allSteps.length) * 100 
+    : 0;
+
+  // For distribution components like quizzes, enable "Apply to all" option
+  const isGroupComponent = stepComponents.length > 1;
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" closeOnOverlayClick={false}>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>
+          <Text>Enter Component Details</Text>
+          <Progress 
+            value={progressPercent} 
+            size="sm" 
+            colorScheme="teal" 
+            mt={2} 
+            borderRadius="md" 
+          />
+        </ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <VStack spacing={4} align="stretch">
+            <Heading size="md">
+              {allSteps[currentStep]?.name || 'Component'} Details
+              <Text fontSize="sm" fontWeight="normal" mt={1}>
+                Step {currentStep + 1} of {allSteps.length}
+              </Text>
+            </Heading>
+            
+            <Divider />
+            
+            {isGroupComponent && (
+              <Box bg="gray.50" p={3} borderRadius="md">
+                <Text fontWeight="bold" mb={2}>Quick Set for All {allSteps[currentStep]?.name}s</Text>
+                <HStack spacing={4}>
+                  <FormControl>
+                    <FormLabel fontSize="sm">Max Marks</FormLabel>
+                    <NumberInput size="sm" min={0}>
+                      <NumberInputField placeholder="e.g., 10" onBlur={(e) => applyMaxMarksToAll(e.target.value)} />
+                    </NumberInput>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="sm">Class Average</FormLabel>
+                    <NumberInput size="sm" min={0}>
+                      <NumberInputField placeholder="e.g., 7" onBlur={(e) => applyClassAvgToAll(e.target.value)} />
+                    </NumberInput>
+                  </FormControl>
+                </HStack>
+              </Box>
+            )}
+            
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Component</Th>
+                  <Th>Weight</Th>
+                  <Th>Max Marks</Th>
+                  <Th>My Marks</Th>
+                  <Th>Class Avg</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {stepComponents.map((comp, idx) => (
+                  <Tr key={idx}>
+                    <Td>{comp.name}</Td>
+                    <Td>{comp.weight.toFixed(1)}%</Td>
+                    <Td>
+                      <NumberInput 
+                        size="sm" 
+                        min={1} 
+                        value={comp.maxMarks}
+                        onChange={(value) => handleMaxMarksChange(value, idx)}
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    </Td>
+                    <Td>
+                      <NumberInput 
+                        size="sm" 
+                        min={0} 
+                        max={comp.maxMarks}
+                        value={comp.myMarks}
+                        onChange={(value) => handleMyMarksChange(value, idx)}
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    </Td>
+                    <Td>
+                      <NumberInput 
+                        size="sm" 
+                        min={0} 
+                        max={comp.maxMarks}
+                        value={comp.classAvgMarks}
+                        onChange={(value) => handleClassAvgChange(value, idx)}
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </VStack>
+        </ModalBody>
+        
+        <ModalFooter>
+          <Button colorScheme="gray" mr={3} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button colorScheme="teal" onClick={nextStep}>
+            {currentStep < allSteps.length - 1 ? 'Next' : 'Finish'}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+export default SequentialDataEntryDialog;

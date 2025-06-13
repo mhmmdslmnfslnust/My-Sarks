@@ -40,7 +40,9 @@ import { SUBJECT_PRESETS } from '../../utils/calculator';
 import ComponentDialog from './ComponentDialog';
 import MultiComponentDialog from './MultiComponentDialog';
 import PresetCustomizationDialog from './PresetCustomizationDialog';
+import SequentialDataEntryDialog from './SequentialDataEntryDialog';
 
+// Main component
 const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
   const [name, setName] = useState('');
   const [creditHours, setCreditHours] = useState('');
@@ -51,10 +53,13 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
   const [selectedPreset, setSelectedPreset] = useState('Custom');
   const [totalWeight, setTotalWeight] = useState(0);
   
+  // Dialog state
   const componentDialog = useDisclosure();
   const multiComponentDialog = useDisclosure();
   const presetCustomizationDialog = useDisclosure();
+  const sequentialDataEntryDialog = useDisclosure();
   
+  // Current editing state
   const [currentComponent, setCurrentComponent] = useState(null);
   const [editIndex, setEditIndex] = useState(null);
   const [multiComponentParams, setMultiComponentParams] = useState({
@@ -63,8 +68,9 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
     totalWeight: 10
   });
   const [presetToCustomize, setPresetToCustomize] = useState(null);
+  const [componentsToEnterData, setComponentsToEnterData] = useState([]);
 
-  // Initialize the form when the dialog is opened or a subject is provided for editing
+  // Initialize form when dialog is opened
   useEffect(() => {
     if (isOpen) {
       if (subject) {
@@ -106,6 +112,7 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
     setTotalWeight(total);
   };
 
+  // Event handlers
   const handleSave = () => {
     // Validate inputs
     if (!name.trim()) {
@@ -231,38 +238,15 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
   };
   
   const handleApplyCustomizedPreset = (customizedComponents) => {
-    // Clear current components
-    const newComponents = [];
-    
-    // Process each customized preset component
-    for (const presetComp of customizedComponents) {
-      if (presetComp.isGroup && presetComp.count > 1) {
-        // For group components (e.g., multiple quizzes)
-        const weightPerItem = presetComp.weight / presetComp.count;
-        
-        for (let i = 1; i <= presetComp.count; i++) {
-          newComponents.push(new Component(
-            `${presetComp.name} ${i}`,
-            weightPerItem,
-            10, // Default max marks
-            0,  // Default my marks
-            0   // Default class average
-          ));
-        }
-      } else {
-        // Single component
-        newComponents.push(new Component(
-          presetComp.name,
-          presetComp.weight,
-          100, // Default max marks
-          0,   // Default my marks
-          0    // Default class average
-        ));
-      }
-    }
-    
-    // Set the components and update total weight
-    setComponents(newComponents);
+    // Start sequential data entry for the customized components
+    setComponentsToEnterData(customizedComponents);
+    sequentialDataEntryDialog.onOpen();
+  };
+
+  const handleSequentialDataEntryComplete = (finalComponents) => {
+    // Set the components with all data entered
+    setComponents(finalComponents);
+    sequentialDataEntryDialog.onClose();
   };
 
   return (
@@ -485,7 +469,6 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         </ModalContent>
       </Modal>
       
-      {/* Component Dialog */}
       <ComponentDialog 
         isOpen={componentDialog.isOpen} 
         onClose={componentDialog.onClose}
@@ -493,7 +476,6 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         component={currentComponent}
       />
       
-      {/* Multi Component Dialog */}
       <MultiComponentDialog
         isOpen={multiComponentDialog.isOpen}
         onClose={multiComponentDialog.onClose}
@@ -501,7 +483,6 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         params={multiComponentParams}
       />
       
-      {/* Preset Customization Dialog */}
       <PresetCustomizationDialog
         isOpen={presetCustomizationDialog.isOpen}
         onClose={presetCustomizationDialog.onClose}
@@ -509,6 +490,20 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         presetName={selectedPreset}
         presetComponents={presetToCustomize}
       />
+      
+      <SequentialDataEntryDialog
+        isOpen={sequentialDataEntryDialog.isOpen}
+        onClose={sequentialDataEntryDialog.onClose}
+        onComplete={handleSequentialDataEntryComplete}
+        customizedComponents={componentsToEnterData}
+
+
+      //   isOpen={presetCustomizationDialog.isOpen}
+      //   onClose={presetCustomizationDialog.onClose}
+      //   onApplyPreset={handleApplyCustomizedPreset}
+      //   presetName={selectedPreset}
+      //   presetComponents={presetToCustomize}
+       />
     </>
   );
 };

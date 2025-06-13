@@ -71,7 +71,34 @@ const PresetCustomizationDialog = ({ isOpen, onClose, onApplyPreset, presetName,
   const handleApply = () => {
     // Final validation
     if (validateTotalWeight(components)) {
-      onApplyPreset(components);
+      // Format components more appropriately for sequential entry
+      const formattedComponents = components.map(comp => {
+        // For group components like quizzes, create individual named items
+        if (comp.isGroup && comp.count > 1) {
+          const items = [];
+          const weightPerItem = comp.weight / comp.count;
+          
+          for (let i = 1; i <= comp.count; i++) {
+            items.push({
+              name: `${comp.name} ${i}`,
+              weight: weightPerItem,
+              isGroup: false,
+              count: 1
+            });
+          }
+          return items;
+        } else {
+          // Single component
+          return [{
+            name: comp.name,
+            weight: comp.weight,
+            isGroup: false,
+            count: 1
+          }];
+        }
+      }).flat();
+      
+      onApplyPreset(formattedComponents);
       onClose();
     } else {
       alert("Total weight must equal 100%. Please adjust component weights.");
