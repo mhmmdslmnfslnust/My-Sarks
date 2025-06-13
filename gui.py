@@ -533,12 +533,12 @@ class SubjectDialog(tk.Toplevel):
         # Add table header
         header = ttk.Frame(self.components_frame.scrollable_frame)
         header.pack(fill="x", pady=5)
-        ttk.Label(header, text="Component", width=15, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, sticky="w")
-        ttk.Label(header, text="Weight (%)", width=10, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=1, sticky="w")
-        ttk.Label(header, text="Max Marks", width=10, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=2, sticky="w")
-        ttk.Label(header, text="My Marks", width=10, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=3, sticky="w")
-        ttk.Label(header, text="Class Avg", width=10, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=4, sticky="w")
-        ttk.Label(header, text="Actions", width=15, font=("TkDefaultFont", 9, "bold")).grid(row=0, column=5, sticky="w")
+        ttk.Label(header, text="Component", width=15).grid(row=0, column=0, padx=5)
+        ttk.Label(header, text="Weight (%)", width=10).grid(row=0, column=1, padx=5)
+        ttk.Label(header, text="Max Marks", width=10).grid(row=0, column=2, padx=5)
+        ttk.Label(header, text="My Marks", width=10).grid(row=0, column=3, padx=5)
+        ttk.Label(header, text="Class Avg", width=10).grid(row=0, column=4, padx=5)
+        ttk.Label(header, text="Actions", width=15).grid(row=0, column=5, padx=5)
         
         # Add each component as a row
         for i, comp in enumerate(self.components):
@@ -1068,12 +1068,8 @@ class ResultsScreen(ttk.Frame):
         ttk.Button(btn_frame, text="Save Results", 
                  command=self.save_results).pack(side="left", padx=5)
         
-        # Fix: Make sure this uses a direct reference to the parent's restart method
-        ttk.Button(
-            btn_frame, 
-            text="Start New Analysis", 
-            command=lambda: self.parent.reset_application()
-        ).pack(side="right", padx=5)
+        ttk.Button(btn_frame, text="Start New Analysis", 
+                 command=lambda: self.parent.switch_to_start()).pack(side="right", padx=5)
         
     def add_subject_panel(self, parent, subject_summary):
         """Add a collapsible panel for a subject"""
@@ -1207,11 +1203,6 @@ class MainApp(tk.Tk):
             self.grade_scale
         )
         self.current_frame.pack(fill="both", expand=True)
-    
-    # Fix: Add a proper reset method that will be called from the Results screen
-    def reset_application(self):
-        """Reset the application to start a new analysis"""
-        self.switch_to_start()
 
 def run_gui():
     """Run the GUI application"""
