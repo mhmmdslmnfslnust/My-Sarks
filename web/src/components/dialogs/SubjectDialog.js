@@ -250,7 +250,7 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
   };
 
   return (
-    <>
+    <React.Fragment>
       <Modal isOpen={isOpen} onClose={onClose} size="xl">
         <ModalOverlay />
         <ModalContent>
@@ -496,15 +496,8 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         onClose={sequentialDataEntryDialog.onClose}
         onComplete={handleSequentialDataEntryComplete}
         customizedComponents={componentsToEnterData}
-
-
-      //   isOpen={presetCustomizationDialog.isOpen}
-      //   onClose={presetCustomizationDialog.onClose}
-      //   onApplyPreset={handleApplyCustomizedPreset}
-      //   presetName={selectedPreset}
-      //   presetComponents={presetToCustomize}
-       />
-    </>
+      />
+    </React.Fragment>
   );
 };
 

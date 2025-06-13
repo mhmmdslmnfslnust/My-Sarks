@@ -205,16 +205,48 @@ const SequentialDataEntryDialog = ({ isOpen, onClose, onComplete, customizedComp
       setStepComponents(allSteps[nextStepIndex].components);
     } else {
       // Create and return final components
-      const finalComponentsList = updatedFinalComponents.map(comp => 
-        new Component(
-          comp.name,
-          comp.weight,
-          comp.maxMarks,
-          comp.myMarks,
-          comp.classAvgMarks
-        )
-      );
-      onComplete(finalComponentsList);
+      try {
+        const finalComponentsList = updatedFinalComponents.map(comp => {
+          // Ensure all required fields have valid values
+          const maxMarks = Number(comp.maxMarks) || 1; // Prevent division by zero
+          const myMarks = Number(comp.myMarks) || 0;
+          const classAvgMarks = Number(comp.classAvgMarks) || 0;
+          const weight = Number(comp.weight) || 0;
+          
+          // Create a proper Component instance with all required fields
+          return new Component(
+            comp.name,
+            weight,
+            maxMarks,
+            myMarks,
+            classAvgMarks
+          );
+        });
+        
+        // Make sure we have at least one valid component
+        if (finalComponentsList.length === 0) {
+          toast({
+            title: "No components to add",
+            description: "Please add at least one component with valid data.",
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+          });
+          return;
+        }
+        
+        // Pass the properly formed components to the callback
+        onComplete(finalComponentsList);
+      } catch (error) {
+        console.error("Error creating components:", error);
+        toast({
+          title: "Error creating components",
+          description: "There was an error processing your data. Please try again.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     }
   };
 
