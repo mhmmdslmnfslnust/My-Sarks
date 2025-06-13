@@ -104,25 +104,56 @@ export class GradeScale {
 export class Semester {
   constructor(name, subjects = [], previousCgpa = null, previousCredits = null) {
     this.name = name;
-    this.subjects = subjects;
+    // Ensure subjects is always an array
+    this.subjects = Array.isArray(subjects) ? subjects : [];
     this.previousCgpa = previousCgpa;
     this.previousCredits = previousCredits;
   }
   
   calculateSgpa(gradeScale) {
     let totalCreditPoints = 0;
-    const totalCredits = this.subjects.reduce((sum, subject) => sum + subject.creditHours, 0);
+    let totalCredits = 0;
     
-    if (totalCredits === 0) {
+    // Defensive check to ensure subjects exists and is iterable
+    if (!this.subjects || !Array.isArray(this.subjects) || this.subjects.length === 0) {
+      console.warn("No subjects found or subjects is not an array in calculateSgpa");
       return 0;
     }
     
-    for (const subject of this.subjects) {
-      const [, gradePoints] = gradeScale.predictGrade(subject.overallRelativePerformance);
-      totalCreditPoints += gradePoints * subject.creditHours;
+    try {
+      // Calculate total credits for denominator
+      totalCredits = this.subjects.reduce((sum, subject) => {
+        // Ensure subject is valid and has creditHours that's a number
+        const creditHours = subject && typeof subject.creditHours === 'number' ? subject.creditHours : 0;
+        return sum + creditHours;
+      }, 0);
+      
+      if (totalCredits === 0) {
+        return 0;
+      }
+      
+      // Calculate credit points safely
+      for (const subject of this.subjects) {
+        if (!subject) continue; // Skip invalid subjects
+        
+        try {
+          const creditHours = subject.creditHours || 0;
+          // Only process if subject has necessary properties
+          if (subject.overallRelativePerformance !== undefined && creditHours > 0) {
+            const [, gradePoints] = gradeScale.predictGrade(subject.overallRelativePerformance);
+            totalCreditPoints += gradePoints * creditHours;
+          }
+        } catch (error) {
+          console.error("Error processing subject in calculateSgpa:", error, subject);
+          // Continue processing other subjects
+        }
+      }
+      
+      return totalCreditPoints / totalCredits;
+    } catch (error) {
+      console.error("Error in calculateSgpa:", error);
+      return 0; // Return a safe default
     }
-    
-    return totalCreditPoints / totalCredits;
   }
   
   calculateCgpa(gradeScale) {
@@ -130,12 +161,19 @@ export class Semester {
       return this.calculateSgpa(gradeScale);
     }
     
-    const sgpa = this.calculateSgpa(gradeScale);
-    const currentCredits = this.subjects.reduce((sum, subject) => sum + subject.creditHours, 0);
-    
-    const totalCredits = this.previousCredits + currentCredits;
-    const totalPoints = (this.previousCgpa * this.previousCredits) + (sgpa * currentCredits);
-    
-    return totalPoints / totalCredits;
+    try {
+      const sgpa = this.calculateSgpa(gradeScale);
+      const currentCredits = this.subjects?.reduce((sum, subject) => sum + (subject?.creditHours || 0), 0) || 0;
+      
+      const totalCredits = (this.previousCredits || 0) + currentCredits;
+      if (totalCredits === 0) return 0;
+      
+      const totalPoints = ((this.previousCgpa || 0) * (this.previousCredits || 0)) + (sgpa * currentCredits);
+      
+      return totalPoints / totalCredits;
+    } catch (error) {
+      console.error("Error in calculateCgpa:", error);
+      return 0; // Return a safe default
+    }
   }
 }
