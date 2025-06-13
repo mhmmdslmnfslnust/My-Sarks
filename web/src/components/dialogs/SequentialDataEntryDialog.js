@@ -43,33 +43,83 @@ const SequentialDataEntryDialog = ({ isOpen, onClose, onComplete, customizedComp
   // Initialize dialog when opened with customized components
   useEffect(() => {
     if (isOpen && customizedComponents && customizedComponents.length > 0) {
-      // Group components by type (name without number)
-      const groups = {};
-      customizedComponents.forEach(comp => {
-        const baseName = comp.name;
-        if (!groups[baseName]) {
-          groups[baseName] = [];
-        }
-        groups[baseName].push({...comp});
-      });
+      let steps = [];
       
-      // Create steps for each group
-      const steps = Object.entries(groups).map(([name, comps]) => ({
-        name,
-        components: comps.map(c => ({
-          ...c,
-          maxMarks: c.maxMarks || 10, // Default max marks
-          myMarks: 0,
-          classAvgMarks: 0
-        }))
-      }));
+      // Check if this looks like a Standard Academic preset
+      const hasQuizzes = customizedComponents.some(comp => comp.name.includes('Quiz'));
+      const hasAssignments = customizedComponents.some(comp => comp.name.includes('Assignment'));
+      const hasMidSemExam = customizedComponents.some(comp => comp.name.includes('Mid-Semester'));
+      const hasEndSemExam = customizedComponents.some(comp => comp.name.includes('End-Semester'));
       
+      // If it's the Standard Academic preset, create ordered steps
+      if (hasQuizzes && hasAssignments && hasMidSemExam && hasEndSemExam) {
+        // Define the priority order for component types
+        const componentOrder = ['Quiz', 'Assignment', 'Mid-Semester', 'End-Semester'];
+        
+        // Group components by their type
+        const orderedGroups = {};
+        componentOrder.forEach(type => orderedGroups[type] = []);
+        
+        // Sort each component into its appropriate group
+        customizedComponents.forEach(comp => {
+          for (const type of componentOrder) {
+            if (comp.name.includes(type)) {
+              orderedGroups[type].push({
+                ...comp,
+                maxMarks: comp.maxMarks || (type.includes('Exam') ? 100 : 10),
+                myMarks: 0,
+                classAvgMarks: 0
+              });
+              break;
+            }
+          }
+        });
+        
+        // Create steps in the specified order
+        steps = componentOrder
+          .filter(type => orderedGroups[type].length > 0)
+          .map(type => ({
+            name: type,
+            components: orderedGroups[type]
+          }));
+      } else {
+        // Fall back to the default grouping for non-standard presets
+        const groups = {};
+        customizedComponents.forEach(comp => {
+          const baseName = comp.name;
+          if (!groups[baseName]) {
+            groups[baseName] = [];
+          }
+          groups[baseName].push({...comp});
+        });
+        
+        steps = Object.entries(groups).map(([name, comps]) => ({
+          name,
+          components: comps.map(c => ({
+            ...c,
+            maxMarks: c.maxMarks || 10, // Default max marks
+            myMarks: 0,
+            classAvgMarks: 0
+          }))
+        }));
+      }
+      
+      // Set the initial state
       setAllSteps(steps);
       setStepComponents(steps[0]?.components || []);
       setCurrentStep(0);
       setFinalComponents([]);
     }
   }, [isOpen, customizedComponents]);
+
+  // Add a helper function to get better step titles
+  const getStepTitle = (stepName) => {
+    if (stepName === 'Quiz') return 'Quizzes';
+    if (stepName === 'Assignment') return 'Assignments';
+    if (stepName === 'Mid-Semester') return 'Mid-Semester Exam';
+    if (stepName === 'End-Semester') return 'End-Semester Exam';
+    return stepName;
+  };
 
   const handleMaxMarksChange = (value, index) => {
     const newComponents = [...stepComponents];
@@ -193,7 +243,7 @@ const SequentialDataEntryDialog = ({ isOpen, onClose, onComplete, customizedComp
         <ModalBody>
           <VStack spacing={4} align="stretch">
             <Heading size="md">
-              {allSteps[currentStep]?.name || 'Component'} Details
+              {getStepTitle(allSteps[currentStep]?.name) || 'Component'} Details
               <Text fontSize="sm" fontWeight="normal" mt={1}>
                 Step {currentStep + 1} of {allSteps.length}
               </Text>
@@ -201,23 +251,35 @@ const SequentialDataEntryDialog = ({ isOpen, onClose, onComplete, customizedComp
             
             <Divider />
             
+            {/* Show different instructions based on component type */}
+            {allSteps[currentStep]?.name === 'Mid-Semester' && (
+              <Box bg="blue.50" p={3} borderRadius="md">
+                <Text fontWeight="bold">Mid-Semester Exam</Text>
+                <Text fontSize="sm">Enter the details for your mid-semester exam.</Text>
+              </Box>
+            )}
+            
+            {allSteps[currentStep]?.name === 'End-Semester' && (
+              <Box bg="purple.50" p={3} borderRadius="md">
+                <Text fontWeight="bold">End-Semester Exam</Text>
+                <Text fontSize="sm">Enter the details for your final end-semester exam.</Text>
+              </Box>
+            )}
+            
             {isGroupComponent && (
               <Box bg="gray.50" p={3} borderRadius="md">
-                <Text fontWeight="bold" mb={2}>Quick Set for All {allSteps[currentStep]?.name}s</Text>
-                <HStack spacing={4}>
-                  <FormControl>
-                    <FormLabel fontSize="sm">Max Marks</FormLabel>
-                    <NumberInput size="sm" min={0}>
-                      <NumberInputField placeholder="e.g., 10" onBlur={(e) => applyMaxMarksToAll(e.target.value)} />
-                    </NumberInput>
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel fontSize="sm">Class Average</FormLabel>
-                    <NumberInput size="sm" min={0}>
-                      <NumberInputField placeholder="e.g., 7" onBlur={(e) => applyClassAvgToAll(e.target.value)} />
-                    </NumberInput>
-                  </FormControl>
-                </HStack>
+                <Text fontWeight="bold" mb={2}>
+                  Quick Set Max Marks for All {getStepTitle(allSteps[currentStep]?.name)}
+                </Text>
+                <FormControl>
+                  <FormLabel fontSize="sm">Max Marks</FormLabel>
+                  <NumberInput size="sm" min={0}>
+                    <NumberInputField 
+                      placeholder={allSteps[currentStep]?.name.includes('Exam') ? "e.g., 100" : "e.g., 10"} 
+                      onBlur={(e) => applyMaxMarksToAll(e.target.value)} 
+                    />
+                  </NumberInput>
+                </FormControl>
               </Box>
             )}
             
@@ -299,5 +361,4 @@ const SequentialDataEntryDialog = ({ isOpen, onClose, onComplete, customizedComp
     </Modal>
   );
 };
-
 export default SequentialDataEntryDialog;
