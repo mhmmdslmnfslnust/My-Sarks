@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -96,21 +96,19 @@ const SubjectDialog = ({ isOpen, onClose, onSave, subject = null }) => {
         setLabCredits('0');
         setSelectedPreset('Custom');
       }
-      
-      // Calculate total weight
-      updateTotalWeight();
+
     }
   }, [isOpen, subject]);
   
+  const updateTotalWeight = useCallback(() => {
+    const total = components.reduce((sum, comp) => sum + comp.weight, 0);
+    setTotalWeight(total);
+  }, [components]);
+
   // Update total weight whenever components change
   useEffect(() => {
     updateTotalWeight();
-  }, [components]);
-  
-  const updateTotalWeight = () => {
-    const total = components.reduce((sum, comp) => sum + comp.weight, 0);
-    setTotalWeight(total);
-  };
+  }, [components, updateTotalWeight]);
 
   // Event handlers
   const handleSave = () => {
